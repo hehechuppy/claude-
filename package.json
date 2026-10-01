@@ -1,14 +1,21 @@
 {
-  "name": "discord-claude-bot",
+  "name": "claude-discord-bot",
   "version": "1.0.0",
-  "description": "Discord bot with Claude AI",
-  "main": "index.js",
+  "description": "Advanced Discord bot powered by Claude AI",
+  "main": "claude_bot.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node claude_bot.js",
+    "dev": "nodemon claude_bot.js"
   },
-  "keywords": ["discord", "bot", "claude", "ai", "chatbot"],
-  "author": "",
+  "keywords": [
+    "discord",
+    "bot",
+    "claude",
+    "ai",
+    "anthropic",
+    "chatbot"
+  ],
+  "author": "Your Name",
   "license": "MIT",
   "dependencies": {
     "discord.js": "^14.14.0",
@@ -18,5 +25,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
