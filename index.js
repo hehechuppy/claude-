@@ -28,7 +28,9 @@ app.listen(PORT, () => {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // Try multiple models (newest first)
 const MODEL_PRIORITY = [
+  'gemini-3.6-flash',
   'gemini-2.0-flash-001',
+  'gemini-2.0-flash',
 ];
 
 let selectedModel = null;
