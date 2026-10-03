@@ -28,8 +28,6 @@ app.listen(PORT, () => {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // Try multiple models (newest first)
 const MODEL_PRIORITY = [
-  'gemini-3.6-flash',
-  'gemini-2.0-flash-001',
   'gemini-2.0-flash',
 ];
 
@@ -116,7 +114,7 @@ client.on('messageCreate', async (message) => {
     let userMessage = message.content.replace(/^<@!?\d+>\s*/, '').trim();
 
     if (!userMessage) {
-      await message.reply('Please say something! 😊');
+      await message.reply('nói đi em! 😊');
       return;
     }
 
@@ -177,7 +175,7 @@ client.on('messageCreate', async (message) => {
     if (error.message.includes('API key') || error.message.includes('401')) {
       errorMsg = '❌ Error: Invalid API key. Check your `.env` file.';
     } else if (error.message.includes('rate_limit') || error.message.includes('429')) {
-      errorMsg = '⏳ Rate limited! Gemini free tier: 15 requests/min. Please wait.';
+      errorMsg = '⏳ nạp tiền đi hết hạn rồi: 15 requests/min. Please wait.';
     } else if (error.message.includes('quota') || error.message.includes('RESOURCE_EXHAUSTED')) {
       errorMsg = '⏳ Daily quota exceeded. Please try again tomorrow.';
     } else if (error.message.includes('timeout')) {
