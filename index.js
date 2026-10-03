@@ -116,7 +116,7 @@ client.on('messageCreate', async (message) => {
     let userMessage = message.content.replace(/^<@!?\d+>\s*/, '').trim();
 
     if (!userMessage) {
-      await message.reply('nói đi em! 😊');
+      await message.reply('Nói đi em! 😊');
       return;
     }
 
@@ -177,11 +177,11 @@ client.on('messageCreate', async (message) => {
     if (error.message.includes('API key') || error.message.includes('401')) {
       errorMsg = '❌ Error: Invalid API key. Check your `.env` file.';
     } else if (error.message.includes('rate_limit') || error.message.includes('429')) {
-      errorMsg = '⏳ nạp tiền đi hết hạn rồi: 15 requests/min. Please wait.';
+      errorMsg = '⏳ Nạp tiền để được nói chuyện với tổng tài đi em: 15 requests/min. Please wait.';
     } else if (error.message.includes('quota') || error.message.includes('RESOURCE_EXHAUSTED')) {
       errorMsg = '⏳ Daily quota exceeded. Please try again tomorrow.';
     } else if (error.message.includes('timeout')) {
-      errorMsg = '⏳ Request timed out. Please try again.';
+      errorMsg = '⏳ Tổng tài bị ngáo rồi.';
     } else if (error.message.includes('no longer available')) {
       errorMsg = '❌ Model no longer available. Admin is fixing...';
     }
