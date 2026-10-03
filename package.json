@@ -1,25 +1,25 @@
 {
-  "name": "claude-discord-bot",
+  "name": "discord-gemini-bot",
   "version": "1.0.0",
-  "description": "Advanced Discord bot powered by Claude AI",
-  "main": "claude_bot.js",
+  "description": "Discord bot powered by Google Gemini AI with conversation memory",
+  "main": "index.js",
   "scripts": {
-    "start": "node claude_bot.js",
-    "dev": "nodemon claude_bot.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "keywords": [
     "discord",
     "bot",
-    "claude",
+    "gemini",
     "ai",
-    "anthropic",
+    "google",
     "chatbot"
   ],
-  "author": "Your Name",
+  "author": "",
   "license": "MIT",
   "dependencies": {
     "discord.js": "^14.14.0",
-    "@anthropic-ai/sdk": "^0.20.0",
+    "@google/generative-ai": "^0.7.0",
     "express": "^4.18.2",
     "dotenv": "^16.3.1"
   },
