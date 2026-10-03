@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
-const Anthropic = require('@anthropic-ai/sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const express = require('express');
 require('dotenv').config();
 
@@ -17,21 +17,48 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.status(200).send('🤖 Claude Bot is running ✅');
+  res.status(200).send('🤖 Gemini Bot is running ✅');
 });
 
 app.listen(PORT, () => {
   console.log(`HTTP server listening on port ${PORT}`);
 });
 
-// Initialize Claude
-const anthropic = new Anthropic({
-  apiKey: process.env.CLAUDE_API_KEY,
-});
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Try multiple models (newest first)
+const MODEL_PRIORITY = [
+  'gemini-3.6-flash',
+  'gemini-2.0-flash-001',
+  'gemini-2.0-flash',
+];
+
+let selectedModel = null;
+
+// Test model availability
+async function findAvailableModel() {
+  for (const modelName of MODEL_PRIORITY) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      await model.generateContent('test');
+      selectedModel = modelName;
+      console.log(`✅ Using model: ${modelName}`);
+      return modelName;
+    } catch (error) {
+      console.log(`⚠️ Model ${modelName} not available: ${error.message.split('\n')[0]}`);
+      continue;
+    }
+  }
+
+  // Fallback
+  selectedModel = 'gemini-2.0-flash';
+  console.log(`⚠️ Using fallback model: ${selectedModel}`);
+  return selectedModel;
+}
 
 // Store conversation history per user
 const conversationHistory = new Map();
-const MAX_HISTORY = 20; // Keep last 20 messages
+const MAX_HISTORY = 20;
 
 // Helper: Delay
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -39,11 +66,11 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // Helper: Format message for Discord
 const formatResponse = (text, maxLength = 2000) => {
   if (text.length <= maxLength) return [text];
-  
+
   const chunks = [];
   let current = '';
   const lines = text.split('\n');
-  
+
   for (const line of lines) {
     if ((current + line).length > maxLength) {
       if (current) chunks.push(current);
@@ -52,18 +79,20 @@ const formatResponse = (text, maxLength = 2000) => {
       current += (current ? '\n' : '') + line;
     }
   }
-  
+
   if (current) chunks.push(current);
   return chunks;
 };
 
 // Initialize bot
-client.once('clientReady', () => {
+client.once('clientReady', async () => {
   console.log(`✅ Bot online as ${client.user.tag}`);
-  console.log(`🚀 Claude API connected`);
-  console.log(`💾 Model: claude-3-5-sonnet-20241022`);
-  console.log(`📊 Free tier: 100K tokens/month`);
-  
+
+  // Find available model
+  const model = await findAvailableModel();
+  console.log(`🚀 Gemini API connected with model: ${model}`);
+  console.log(`💾 Free tier: 15 requests/minute`);
+
   client.user.setActivity('messages | /help', { type: 'LISTENING' });
 });
 
@@ -75,7 +104,7 @@ client.on('messageCreate', async (message) => {
   // Only respond to mentions or DMs
   const isMentioned = message.mentions.has(client.user);
   const isDM = message.channel.isDMBased();
-  
+
   if (!isMentioned && !isDM) return;
 
   try {
@@ -99,10 +128,10 @@ client.on('messageCreate', async (message) => {
 
     const history = conversationHistory.get(userId);
 
-    // Add user message to history
+    // Add user message to history (Gemini format)
     history.push({
       role: 'user',
-      content: userMessage,
+      parts: [{ text: userMessage }],
     });
 
     // Keep only last N messages
@@ -110,27 +139,29 @@ client.on('messageCreate', async (message) => {
       history.shift();
     }
 
-    // Call Claude
+    // Call Gemini
     console.log(`📨 ${message.author.username}: "${userMessage}"`);
-    
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages: history,
-      system: 'You are a helpful Discord bot assistant. Keep responses concise and friendly. Use markdown formatting when appropriate.',
+
+    const model = genAI.getGenerativeModel({ model: selectedModel });
+    const chat = model.startChat({
+      history: history.slice(0, -1),
+      generationConfig: {
+        maxOutputTokens: 1024,
+      },
     });
 
-    const assistantMessage = response.content[0].text;
+    const result = await chat.sendMessage(userMessage);
+    const assistantMessage = result.response.text();
 
     // Add to history
     history.push({
-      role: 'assistant',
-      content: assistantMessage,
+      role: 'model',
+      parts: [{ text: assistantMessage }],
     });
 
     // Send response(s)
     const chunks = formatResponse(assistantMessage);
-    
+
     for (const chunk of chunks) {
       await message.reply(chunk);
       if (chunks.length > 1) await wait(300);
@@ -143,14 +174,16 @@ client.on('messageCreate', async (message) => {
 
     let errorMsg = '❌ An error occurred. Please try again later.';
 
-    if (error.message.includes('401') || error.message.includes('authentication')) {
+    if (error.message.includes('API key') || error.message.includes('401')) {
       errorMsg = '❌ Error: Invalid API key. Check your `.env` file.';
-    } else if (error.message.includes('rate_limit')) {
-      errorMsg = '⏳ Rate limited! Please wait a moment before trying again.';
-    } else if (error.message.includes('overloaded')) {
-      errorMsg = '⏳ Claude is overloaded. Please try again in a moment.';
+    } else if (error.message.includes('rate_limit') || error.message.includes('429')) {
+      errorMsg = '⏳ Rate limited! Gemini free tier: 15 requests/min. Please wait.';
+    } else if (error.message.includes('quota') || error.message.includes('RESOURCE_EXHAUSTED')) {
+      errorMsg = '⏳ Daily quota exceeded. Please try again tomorrow.';
     } else if (error.message.includes('timeout')) {
       errorMsg = '⏳ Request timed out. Please try again.';
+    } else if (error.message.includes('no longer available')) {
+      errorMsg = '❌ Model no longer available. Admin is fixing...';
     }
 
     try {
@@ -165,38 +198,33 @@ client.on('messageCreate', async (message) => {
 client.on('messageCreate', async (message) => {
   if (message.content.toLowerCase() === '/help' || message.content.toLowerCase().includes('/help')) {
     const helpEmbed = new EmbedBuilder()
-      .setColor('#FF6B35')
-      .setTitle('🤖 Claude Bot Help')
-      .setDescription('How to use this Discord bot with Claude AI')
+      .setColor('#4285F4')
+      .setTitle('🤖 Gemini Bot Help')
+      .setDescription('Discord bot powered by Google Gemini')
       .addFields(
         {
           name: '💬 Chat',
-          value: 'Mention bot or DM: `@Claude [message]`\nBot remembers conversation history!',
+          value: 'Mention bot or DM: `@Gemini [message]`\nBot remembers conversation history!',
           inline: false,
         },
         {
           name: '📌 Powered By',
-          value: 'Claude 3.5 Sonnet (Anthropic)\n100K tokens/month free tier',
+          value: 'Google Gemini\nFree tier: 15 requests/minute',
           inline: false,
         },
         {
           name: '⚡ Features',
-          value: '✅ Free (100K tokens/month)\n✅ Remembers conversations\n✅ Markdown support\n✅ Error handling',
-          inline: false,
-        },
-        {
-          name: '🔗 Links',
-          value: '[Anthropic](https://www.anthropic.com) | [Claude Docs](https://docs.anthropic.com)',
+          value: '✅ Fast responses\n✅ Remembers conversations\n✅ Error handling',
           inline: false,
         }
       )
-      .setFooter({ text: 'Claude Bot v1.0 | Type /help for this message' });
+      .setFooter({ text: 'Gemini Bot v1.0' });
 
     await message.reply({ embeds: [helpEmbed] });
   }
 });
 
-// Clear history command (optional)
+// Clear history command
 client.on('messageCreate', async (message) => {
   if (message.content.toLowerCase() === '/clear') {
     const userId = message.author.id;
@@ -205,14 +233,14 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// Periodic cleanup (remove old histories)
+// Periodic cleanup
 setInterval(() => {
   if (conversationHistory.size > 100) {
     const firstKey = conversationHistory.keys().next().value;
     conversationHistory.delete(firstKey);
     console.log('🧹 Cleaned up old conversation history');
   }
-}, 60 * 60 * 1000); // Every hour
+}, 60 * 60 * 1000);
 
 // Login
 client.login(process.env.DISCORD_TOKEN);
